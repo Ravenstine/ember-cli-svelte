@@ -24,7 +24,7 @@ ember install ember-cli-svelte
 
 Simply drop a `.svelte` file in `app/components`, and then you can call it in your templates just like a regular Glimmer component.
 
-```html
+```hbs
 <!-- app/components/hello.svelte -->
 
 <script>
@@ -42,11 +42,17 @@ Simply drop a `.svelte` file in `app/components`, and then you can call it in yo
 
 Outputs:
 
-```html
+```hbs
 <div><h2>Hello, Tomster!</h2></div>
 ```
 
 Since a Svelte component is doing its own rendering separate from Glimmer, it needs its own element when being invoked by Glimmer.  A `<div>` element is created automatically for that purpose.
+
+If you want to give the wrapping element a different tag name, you can specify it using the special `<svelte:options>` tag inside your Svelte component:
+
+```hbs
+<svelte:options tag="my-element" />
+```
 
 
 ## Features

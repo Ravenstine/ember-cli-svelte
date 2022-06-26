@@ -15,7 +15,22 @@ class SvelteComponentFilter extends Filter {
   }
 
   processString(string /*, relativePath */) {
-    const compiled = compile(string, { format: 'esm', accessors: true });
+    const compiled = compile(string, { format: 'esm' });
+
+    for (const warning of compiled.warnings) {
+      console.warn(`\n${warning.toString()}`);
+    }
+
+    const svelteOptions = (
+      compiled.ast.html.children.find(
+        (child) => child.name === 'svelte:options'
+      ) || { attributes: [] }
+    ).attributes.reduce((attrs, attr) => {
+      attrs[attr.name] = attr.value?.[0]?.data;
+      return attrs;
+    }, {});
+    const tagName = svelteOptions.tag?.length ? svelteOptions.tag : 'div';
+
     const trackedProps = compiled.vars
       .map(({ export_name }) => `@tracked ${export_name};\n`)
       .join('');
@@ -72,14 +87,15 @@ class SvelteComponentFilter extends Filter {
       }
 
       const template = hbs\`
-        <div
-          {{did-insert this.setupSvelteComponent}}
-          {{did-update this.updateSvelteComponent ${compiled.vars
-            .map(({ export_name }) => `@${export_name}`)
-            .join(' ')} }}
-          {{will-destroy this.teardownSvelteComponent}}
-          ...attributes>
-        </div>
+        {{#let (element "${tagName}") as |SvelteComponentElement|}}
+          <SvelteComponentElement
+            {{did-insert this.setupSvelteComponent}}
+            {{did-update this.updateSvelteComponent ${compiled.vars
+              .map(({ export_name }) => `@${export_name}`)
+              .join(' ')} }}
+            {{will-destroy this.teardownSvelteComponent}}
+            ...attributes />
+        {{/let}}
       \`;
 
       setComponentTemplate(template, SvelteWrapperComponent);
