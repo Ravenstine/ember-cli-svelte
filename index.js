@@ -1,9 +1,9 @@
 'use strict';
 
 const Filter = require('broccoli-filter');
-const { compile, parse, preprocess, walk } = require('svelte/compiler');
+const { compile /*, parse, preprocess, walk*/ } = require('svelte/compiler');
 
-class SvelteFilter extends Filter {
+class SvelteComponentFilter extends Filter {
   extensions = ['svelte'];
   targetExtension = 'js';
 
@@ -14,81 +14,105 @@ class SvelteFilter extends Filter {
     this.inputTree = inputTree;
   }
 
-  processString(string, relativePath) {
-    const compiled = compile(string);
+  processString(string /*, relativePath */) {
+    const compiled = compile(string, { format: 'esm', accessors: true });
+    const trackedProps = compiled.vars
+      .map(({ export_name }) => `@tracked ${export_name};\n`)
+      .join('');
 
-    return compiled?.js?.code;
+    let code = (compiled?.js?.code || '').split('\n');
+
+    // remove the default export statement
+    code.pop();
+
+    // provide named export for svelte component
+    code.push(`export { Component };`);
+
+    // add glimmer imports
+    code.unshift("import GlimmerComponent from '@glimmer/component';");
+    code.unshift("import { tracked } from '@glimmer/tracking';");
+    code.unshift("import { action } from '@ember/object';");
+    code.unshift("import { setComponentTemplate } from '@ember/component';");
+    code.unshift("import { hbs } from 'ember-cli-htmlbars';");
+    code.unshift("import { flush as internalFlush } from 'svelte/internal';");
+
+    // define glimmer component
+    code.push(`
+      class SvelteWrapperComponent extends GlimmerComponent {
+        #args = {};
+        #component;
+        #element;
+
+        ${trackedProps}
+
+        constructor(owner, args) {
+          super(...arguments);
+          this.#args = args;
+        }
+
+        @action
+        setupSvelteComponent(element) {
+          this.#element = element;
+          this.#component = new Component({ target: element, props: this.#args });
+        }
+
+        @action
+        updateSvelteComponent(element, argList, args) {
+          const component = this.#component;
+
+          component.$set(this.#args);
+
+          internalFlush();
+        }
+
+        @action
+        teardownSvelteComponent() {
+          this.#component.$destroy();
+        }
+      }
+
+      const template = hbs\`
+        <div
+          {{did-insert this.setupSvelteComponent}}
+          {{did-update this.updateSvelteComponent ${compiled.vars
+            .map(({ export_name }) => `@${export_name}`)
+            .join(' ')} }}
+          {{will-destroy this.teardownSvelteComponent}}
+          ...attributes>
+        </div>
+      \`;
+
+      setComponentTemplate(template, SvelteWrapperComponent);
+
+      export default SvelteWrapperComponent;
+    `);
+
+    return code.join('\n');
   }
 }
 
 module.exports = {
   name: require('./package').name,
 
-  // included(app) {
-  //   this._super.included.apply(this, arguments);
-
-  //   let current = this;
-  //   // Keep iterating upward until we don't have a grandparent.
-  //   // Has to do this grandparent check because at some point we hit the project.
-  //   do {
-  //     app = current.app || app;
-  //   } while (current.parent.parent && (current = current.parent));
-
-  //   // console.log(app);
-
-  //   this.app = app;
-  // },
-
   included(app) {
     this._super.included.apply(this, arguments);
 
     let current = this;
-    // Keep iterating upward until we don't have a grandparent.
-    // Has to do this grandparent check because at some point we hit the project.
+
     do {
       app = current.app || app;
     } while (current.parent.parent && (current = current.parent));
 
-    // console.log(app);
-
     this.app = app;
 
-    const addonContext = this;
-    // console.log(this)
     const compiler = {
       name: 'ember-cli-svelte',
       ext: ['svelte'],
       toTree(tree) {
-        return new SvelteFilter(tree, {});
+        return new SvelteComponentFilter(tree, {});
       },
     };
 
     app.registry.add('template', compiler);
   },
-
-  // postprocessTree(type, tree) {
-  //   if (type === 'js') {
-  //     // console.log(tree._inputNodes[0].inputNodes[0].inputNodes[5]._inputNodes[0].inputNodes[0]._inputNodes[1]._inputNodes);
-  //     console.log(crawl(tree, []));
-  //     // console.log(tree);
-  //   }
-
-  //   return tree;
-  //   // return this._super.preprocessTree.apply(this, arguments);
-  // },
 };
-
-// function crawl(node, list) {
-//   if (typeof node !== 'object') return list;
-
-//   const inputNodes = node.inputNodes || node._inputNodes || [];
-
-//   const newList = [...list, ...inputNodes];
-
-//   for (const node of inputNodes) {
-//     console.log(node);
-//     newList.concat(crawl(node, []));
-//   }
-
-//   return newList;
-// }
