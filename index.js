@@ -59,6 +59,11 @@ class SvelteComponentFilter extends Filter {
         #args = {};
         #component;
         #element;
+        #startBound;
+        #endBound;
+
+        @tracked _showStartBound = true;
+        @tracked _showEndBound = true;
 
         ${trackedProps}
 
@@ -69,9 +74,21 @@ class SvelteComponentFilter extends Filter {
         }
 
         @action
-        setupSvelteComponent(element) {
-          this.#element = element;
+        getStartBound(element) {
+          this.#startBound = element;
 
+          this._showStartBound = false;
+        }
+
+        @action
+        getEndBound(element) {
+          this.#endBound = element;
+
+          this._showEndBound = false;
+        }
+
+        @action
+        insertSvelteComponent(referenceElement) {
           const fragment = new DocumentFragment();
 
           // These overrides are meant to overcome some
@@ -80,20 +97,40 @@ class SvelteComponentFilter extends Filter {
           fragment.removeChild = child => {
             child.remove?.();
           }
+
           fragment.insertBefore = (node, reference) => {
             const parent = (reference || {}).parentNode || fragment;
             DocumentFragment.prototype.insertBefore.apply(parent, [node, reference]);
           };
+
           Object.defineProperty(fragment, 'parentNode', {
             value: fragment,
           });
 
-          fragment.replaceChildren(...element.childNodes);
+          const blockContent = ((startBound, endBound) => {
+            const nodes = [];
+
+            let currentNode = startBound.nextSibling;
+
+            while (currentNode !== endBound) {
+              nodes.push(currentNode);
+              currentNode = currentNode.nextSibling;
+            }
+
+            return nodes;
+          })(this.#startBound, this.#endBound);
+
+          fragment.replaceChildren(...blockContent);
+
+          this._showReference = false;
 
           let defaultSlotTarget;
 
-          this.#component = new Component({ 
-            target: element,
+          this.#component = new Component({
+            // Doesn't seem to matter that the end-bound element
+            // gets removed by Glimmer after the Svelte component renders.
+            anchor: this.#endBound,
+            target: this.#endBound.parentElement,
             props: {
               ...this.#args,
               $$scope: {},
@@ -112,7 +149,10 @@ class SvelteComponentFilter extends Filter {
                   d(detaching) {
                     if (!detaching) return;
 
-                    fragment.replaceChildren(...(defaultSlotTarget.childNodes || []));
+                    const childNodes = Array
+                      .from(defaultSlotTarget.childNodes || []);
+
+                    fragment.replaceChildren(...childNodes);
 
                     detach(fragment);
                   },
@@ -139,9 +179,11 @@ class SvelteComponentFilter extends Filter {
       }
 
       const template = hbs\`
-        {{#let (element "${tagName}") as |SvelteComponentElement|}}
-          <SvelteComponentElement
-            {{did-insert this.setupSvelteComponent}}
+        {{#let (component "-private/svelte-content") as |SvelteContent|}}
+          <SvelteContent @tagName="${tagName}" ...attributes>
+            {{#if this._showStartBound}}<span {{did-insert this.getStartBound}}></span>{{/if}}
+            {{yield}}
+            {{#if this._showEndBound}}<span {{did-insert this.getEndBound}} {{did-insert this.insertSvelteComponent}}></span>{{/if}}
             {{did-update this.updateSvelteComponent ${compiled.vars.reduce(
               (props, { export_name }) => {
                 if (export_name) return `${props} @${export_name}`;
@@ -151,7 +193,7 @@ class SvelteComponentFilter extends Filter {
               ''
             )} }}
             {{will-destroy this.teardownSvelteComponent}}
-            ...attributes>{{yield}}</SvelteComponentElement>
+          </SvelteContent>
         {{/let}}
       \`;
 

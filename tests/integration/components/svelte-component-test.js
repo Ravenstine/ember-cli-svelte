@@ -11,7 +11,7 @@ module('Integration | Component | svelte-component', function (hooks) {
     set(this, 'name', 'Tomster');
 
     await render(hbs`
-      <Hello @name={{this.name}} data-test-svelte-component>
+      <Hello @name={{this.name}}>
         <b data-test-block-content>Ember + Svelte</b>
       </Hello>
     `);
@@ -24,8 +24,15 @@ module('Integration | Component | svelte-component', function (hooks) {
 
     assert.dom('h2').hasText('Hello, Zoey!', 'updates props');
 
-    assert.dom('[data-test-svelte-component]').hasTagName('hello-ember');
-
     assert.dom('h3').hasText('Ember + Svelte');
+  });
+
+  test('it supports an optional wrapping element', async function (assert) {
+    await render(hbs`
+      <Tagged data-test-svelte-component>is tagged</Tagged>
+    `);
+
+    assert.dom('[data-test-svelte-component]').hasTagName('tagged-component');
+    assert.dom('[data-test-svelte-component]').hasText('is tagged');
   });
 });

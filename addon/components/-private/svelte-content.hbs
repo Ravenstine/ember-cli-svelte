@@ -1,0 +1,7 @@
+{{#if @tagName}}
+  {{#let (element @tagName) as |SvelteComponentElement|}}
+    <SvelteComponentElement ...attributes>{{yield}}</SvelteComponentElement>
+  {{/let}}
+{{else}}
+  {{yield}}
+{{/if}}
