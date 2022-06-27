@@ -43,7 +43,9 @@ Simply drop a `.svelte` file in `app/components`, and then you can call it in yo
 Outputs:
 
 ```hbs
-<div><h2>Hello, Tomster!</h2></div>
+<div>
+  <h2>Hello, Tomster!</h2>
+</div>
 ```
 
 Since a Svelte component is doing its own rendering separate from Glimmer, it needs its own element when being invoked by Glimmer.  A `<div>` element is created automatically for that purpose.
@@ -54,6 +56,33 @@ If you want to give the wrapping element a different tag name, you can specify i
 <svelte:options tag="my-element" />
 ```
 
+Svelte components can also take block content and use it in a default slot.
+
+```hbs
+<!-- app/components/hello.svelte -->
+
+<script>
+  export let name;
+</script>
+
+<h2>Hello, {name}!</h2>
+<h3><slot></slot></h3>
+```
+
+```hbs
+{{!-- app/templates/application.hbs --}}
+
+<Hello @name="Tomster">Meet Svelte</Hello>
+```
+
+Outputs:
+
+```hbs
+<div>
+  <h2>Hello, Tomster!</h2>
+  <h3>Meet Svelte</h3>
+</div>
+```
 
 ## Features
 
