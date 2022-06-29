@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Default slot support (passing a block from Glimmer to Svelte)
+- Allowing Svelte components to import other Svelte components
 ### Removed
 - Requirement for a wrapping DOM element
 
