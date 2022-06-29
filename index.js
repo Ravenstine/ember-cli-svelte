@@ -121,8 +121,10 @@ function buildGlimmerComponent(tree, inputParsedPath, vars) {
   const glimmerComponentCode = `
     import SvelteComponent from './${inputParsedPath.base}';
     import GlimmerComponent from '@glimmer/component';
+    import SvelteContent from 'ember-cli-svelte/components/-private/svelte-content';
     import { tracked } from '@glimmer/tracking';
     import { action } from '@ember/object';
+    import { ensureSafeComponent } from '@embroider/util';
     import { detach, flush, insert, noop } from 'svelte/internal';
 
     class EmberSvelteComponent extends GlimmerComponent {
@@ -140,6 +142,10 @@ function buildGlimmerComponent(tree, inputParsedPath, vars) {
 
         return props;
       }, '')}
+
+      get svelteContent() {
+        return ensureSafeComponent(SvelteContent, this);
+      }
 
       constructor(owner, args) {
         super(...arguments);
@@ -275,7 +281,7 @@ function buildHBSTemplate(tree, inputParsedPath, vars, svelteOptions) {
 
   const glimmerTemplatePath = path.format(glimmerTemplateParsedPath);
   const glimmerTemplateCode = `
-    {{#let (component "-private/svelte-content") as |SvelteContent|}}
+    {{#let (component this.svelteContent) as |SvelteContent|}}
       <SvelteContent @tagName="${tagName}" ...attributes>
         {{#if this._showStartBound}}<span {{did-insert this.getStartBound}}></span>{{/if}}
         {{yield}}
