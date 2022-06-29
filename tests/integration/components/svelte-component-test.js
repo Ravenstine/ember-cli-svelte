@@ -35,4 +35,12 @@ module('Integration | Component | svelte-component', function (hooks) {
     assert.dom('[data-test-svelte-component]').hasTagName('tagged-component');
     assert.dom('[data-test-svelte-component]').hasText('is tagged');
   });
+
+  test('it can import other Svelte components by relative path', async function (assert) {
+    await render(hbs`
+      <CanImport data-test-can-import />
+    `);
+
+    assert.dom('[data-test-can-import]').exists();
+  });
 });
