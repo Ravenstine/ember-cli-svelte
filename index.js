@@ -164,7 +164,7 @@ function buildGlimmerComponent(tree, inputParsedPath) {
 
 function buildHBSTemplate(tree, inputParsedPath, vars, svelteOptions) {
   const glimmerTemplateParsedPath = { ...inputParsedPath };
-  const tagName = svelteOptions.tag?.length ? svelteOptions.tag : 'div';
+  const tagName = svelteOptions.tag?.length ? svelteOptions.tag : null;
   glimmerTemplateParsedPath.ext = '.hbs';
   glimmerTemplateParsedPath.base = `${glimmerTemplateParsedPath.name}${glimmerTemplateParsedPath.ext}`;
 
