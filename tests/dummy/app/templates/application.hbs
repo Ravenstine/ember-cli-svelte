@@ -1,6 +1,6 @@
 {{page-title "Dummy"}}
 
-<Hello @name={{this.name}}>{{this.date}}</Hello>
+<Hello @name={{this.name}}>{{#if this.showsDate}}{{this.date}}{{/if}}</Hello>
 
 <label for="name-input">Enter Name:</label>
 <Input id="name-input" @value={{this.name}} />

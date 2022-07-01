@@ -3,6 +3,9 @@
 const Plugin = require('broccoli-plugin');
 const path = require('path');
 const { compile /*, parse, preprocess, walk*/ } = require('svelte/compiler');
+const { transformSync } = require('@babel/core');
+const t = require('@babel/types');
+const glimmer = require('@glimmer/syntax');
 
 module.exports = {
   name: require('./package').name,
@@ -65,7 +68,7 @@ class SveltePlugin extends Plugin {
 
       const compiled = compileSvelteComponent(this, parsedPath, file);
 
-      buildGlimmerComponent(this, parsedPath, compiled.vars);
+      buildGlimmerComponent(this, parsedPath);
 
       const svelteOptions = parseSvelteOptions(compiled);
 
@@ -115,151 +118,37 @@ function compileSvelteComponent(tree, inputParsedPath, svelteComponentMarkup) {
   return compiled;
 }
 
-function buildGlimmerComponent(tree, inputParsedPath, vars) {
-  // const svelteOptions = parseSvelteOptions(compiledSvelteComponent);
-  // const tagName = svelteOptions.tag?.length ? svelteOptions.tag : 'div';
-  const glimmerComponentCode = `
-    import SvelteComponent from './${inputParsedPath.base}';
-    import GlimmerComponent from '@glimmer/component';
-    import SvelteContent from 'ember-cli-svelte/components/-private/svelte-content';
-    import { tracked } from '@glimmer/tracking';
-    import { action } from '@ember/object';
-    import { ensureSafeComponent } from '@embroider/util';
-    import { detach, flush, insert, noop } from 'svelte/internal';
+function buildGlimmerComponent(tree, inputParsedPath) {
+  const { code: glimmerComponentCode } = transformSync(
+    `
+    import EmberSvelteComponent from 'ember-cli-svelte/components/-private/ember-svelte-component';
 
-    class EmberSvelteComponent extends GlimmerComponent {
-      #args = {};
-      #component;
-      #element;
-      #startBound;
-      #endBound;
-
-      @tracked _showStartBound = true;
-      @tracked _showEndBound = true;
-
-      ${vars.reduce((props, { export_name }) => {
-        if (export_name) return `${props} @tracked ${export_name};`;
-
-        return props;
-      }, '')}
-
-      get svelteContent() {
-        return ensureSafeComponent(SvelteContent, this);
-      }
-
-      constructor(owner, args) {
+    export default class extends EmberSvelteComponent {
+      constructor() {
         super(...arguments);
 
-        this.#args = args;
-      }
-
-      @action
-      getStartBound(element) {
-        this.#startBound = element;
-
-        this._showStartBound = false;
-      }
-
-      @action
-      getEndBound(element) {
-        this.#endBound = element;
-
-        this._showEndBound = false;
-      }
-
-      @action
-      insertSvelteComponent(referenceElement) {
-        const fragment = new DocumentFragment();
-
-        // These overrides are meant to overcome some
-        // errors caused by the way that Glimmer handles
-        // its rendered elements.
-        fragment.removeChild = child => {
-          child.remove?.();
-        }
-
-        fragment.insertBefore = (node, reference) => {
-          const parent = (reference || {}).parentNode || fragment;
-          DocumentFragment.prototype.insertBefore.apply(parent, [node, reference]);
-        };
-
-        Object.defineProperty(fragment, 'parentNode', {
-          value: fragment,
-        });
-
-        const blockContent = ((startBound, endBound) => {
-          const nodes = [];
-
-          let currentNode = startBound.nextSibling;
-
-          while (currentNode !== endBound) {
-            nodes.push(currentNode);
-            currentNode = currentNode.nextSibling;
-          }
-
-          return nodes;
-        })(this.#startBound, this.#endBound);
-
-        fragment.replaceChildren(...blockContent);
-
-        this._showReference = false;
-
-        let defaultSlotTarget;
-
-        this.#component = new SvelteComponent({
-          // Doesn't seem to matter that the end-bound element
-          // gets removed by Glimmer after the Svelte component renders.
-          anchor: this.#endBound,
-          target: this.#endBound.parentElement,
-          props: {
-            ...this.#args,
-            $$scope: {},
-            // See: https://github.com/sveltejs/svelte/issues/2588
-            // This is here to support passing a block from the
-            // Glimmer component to the default slot of the Svelte
-            // component.
-            $$slots: {
-              default: [() => ({
-                c: noop,
-                m(target, anchor) {
-                  defaultSlotTarget = target;
-
-                  insert(target, fragment, anchor);
-                },
-                d(detaching) {
-                  if (!detaching) return;
-
-                  const childNodes = Array
-                    .from(defaultSlotTarget.childNodes || []);
-
-                  fragment.replaceChildren(...childNodes);
-
-                  detach(fragment);
-                },
-                l: noop,
-              })],
-            }
-          },
-        });
-      }
-
-      @action
-      updateSvelteComponent(element, argList, args) {
-        const component = this.#component;
-
-        component.$set(this.#args);
-
-        flush();
-      }
-
-      @action
-      teardownSvelteComponent() {
-        this.#component.$destroy();
+        this.svelteComponentClass = SvelteComponent;
       }
     }
-
-    export default EmberSvelteComponent;
-  `;
+  `,
+    {
+      plugins: [
+        {
+          visitor: {
+            Program(path) {
+              path.unshiftContainer(
+                'body',
+                t.importDeclaration(
+                  [t.importDefaultSpecifier(t.identifier('SvelteComponent'))],
+                  t.stringLiteral(`./${inputParsedPath.base}`)
+                )
+              );
+            },
+          },
+        },
+      ],
+    }
+  );
 
   const glimmerComponentParsedPath = { ...inputParsedPath };
 
@@ -280,26 +169,47 @@ function buildHBSTemplate(tree, inputParsedPath, vars, svelteOptions) {
   glimmerTemplateParsedPath.base = `${glimmerTemplateParsedPath.name}${glimmerTemplateParsedPath.ext}`;
 
   const glimmerTemplatePath = path.format(glimmerTemplateParsedPath);
-  const glimmerTemplateCode = `
+  const ast = glimmer.preprocess(`
     {{#let (component this.svelteContent) as |SvelteContent|}}
-      <SvelteContent @tagName="${tagName}" ...attributes>
+      <SvelteContent ...attributes>
         {{#if this._showStartBound}}<span {{did-insert this.getStartBound}}></span>{{/if}}
         {{yield}}
         {{#if this._showEndBound}}<span {{did-insert this.getEndBound}} {{did-insert this.insertSvelteComponent}}></span>{{/if}}
-        {{did-update this.updateSvelteComponent ${vars.reduce(
-          (props, { export_name }) => {
-            if (export_name) return `${props} @${export_name}`;
-
-            return props;
-          },
-          ''
-        )} }}
+        {{did-update this.updateSvelteComponent}}
         {{will-destroy this.teardownSvelteComponent}}
       </SvelteContent>
     {{/let}}
-  `;
+  `);
+
+  glimmer.traverse(ast, {
+    ElementNode(node) {
+      if (!tagName || node.tag !== 'SvelteContent') return;
+
+      node.attributes.unshift(
+        glimmer.builders.attr('@tagName', glimmer.builders.text(tagName))
+      );
+    },
+    MustacheStatement(node) {
+      connectUpdateProps(node, vars);
+    },
+    ElementModifierStatement(node) {
+      connectUpdateProps(node, vars);
+    },
+  });
+
+  const glimmerTemplateCode = glimmer.print(ast);
 
   tree.output.writeFileSync(glimmerTemplatePath, glimmerTemplateCode, {
     encoding: 'UTF-8',
   });
+}
+
+function connectUpdateProps(node, vars) {
+  if (node.path.original !== 'did-update') return;
+
+  for (const { export_name } of vars) {
+    if (!export_name) continue;
+
+    node.params.push(glimmer.builders.path(`@${export_name}`));
+  }
 }
