@@ -41,6 +41,8 @@ module('Integration | Component | svelte-component', function (hooks) {
       <CanImport data-test-can-import />
     `);
 
+    this.pauseTest();
+
     assert.dom('[data-test-can-import]').exists();
   });
 });
