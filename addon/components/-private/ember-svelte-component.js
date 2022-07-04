@@ -7,44 +7,26 @@ import { /*detach,*/ flush, /*insert,*/ noop } from 'svelte/internal';
 
 class EmberSvelteComponent extends GlimmerComponent {
   svelteComponentClass;
+  svelteComponentInstance;
   defaultSlotAnchor;
 
   @tracked defaultSlotElement;
+  @tracked showsSvelteComponentAnchor = true;
   @tracked showsDefaultSlot = false;
-  @tracked showsAnchor = true;
-
-  #args = {};
-  #component;
-  #endBound;
 
   get svelteContent() {
     return ensureSafeComponent(OptionalTag, this);
   }
 
-  constructor(owner, args) {
-    super(...arguments);
-
-    this.#args = args;
-  }
-
   @action
-  getEndBound(element) {
-    this.#endBound = element;
-
-    this.showsAnchor = false;
-  }
-
-  @action
-  insertSvelteComponent() {
-    this._showReference = false;
-
-    this.#component = new this.svelteComponentClass({
+  insertSvelteComponent(svelteComponentAnchor) {
+    this.svelteComponentInstance = new this.svelteComponentClass({
       // Doesn't seem to matter that the anchor element
       // gets removed by Glimmer after the Svelte component renders.
-      anchor: this.#endBound,
-      target: this.#endBound.parentElement,
+      anchor: svelteComponentAnchor,
+      target: svelteComponentAnchor.parentElement,
       props: {
-        ...this.#args,
+        ...this.args,
         $$scope: {},
         // See: https://github.com/sveltejs/svelte/issues/2588
         // This is here to support passing a block from the
@@ -54,7 +36,7 @@ class EmberSvelteComponent extends GlimmerComponent {
           default: [
             () => ({
               c: () => {
-                this.showsDefaultSlot = true;
+                this.showsSvelteComponentAnchor = false;
               },
               m: (target, anchor) => {
                 this.defaultSlotElement = target;
@@ -76,16 +58,16 @@ class EmberSvelteComponent extends GlimmerComponent {
 
   @action
   updateSvelteComponent() {
-    const component = this.#component;
+    const component = this.svelteComponentInstance;
 
-    component.$set(this.#args);
+    component.$set(this.args);
 
     flush();
   }
 
   @action
   teardownSvelteComponent() {
-    this.#component.$destroy();
+    this.svelteComponentInstance.$destroy();
   }
 }
 
