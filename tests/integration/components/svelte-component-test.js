@@ -3,6 +3,7 @@ import { setupRenderingTest } from 'dummy/tests/helpers';
 import { render, settled } from '@ember/test-helpers';
 import { hbs } from 'ember-cli-htmlbars';
 import { set } from '@ember/object';
+import { message as moduleContextMessage } from 'dummy/components/module-context.svelte';
 
 module('Integration | Component | svelte-component', function (hooks) {
   setupRenderingTest(hooks);
@@ -50,5 +51,9 @@ module('Integration | Component | svelte-component', function (hooks) {
     `);
 
     assert.dom('[data-test-colocated-name]').hasText('Zoey');
+  });
+
+  test('it supports module context', function (assert) {
+    assert.deepEqual(moduleContextMessage, 'Ember is Omakase');
   });
 });
