@@ -10,6 +10,6 @@ export default class ApplicationController extends Controller {
     super(...arguments);
 
     setInterval(() => (this.date = new Date().toUTCString()), 10);
-    // setInterval(() => (this.showsDate = !this.showsDate), 2000);
+    setInterval(() => (this.showsDate = !this.showsDate), 2000);
   }
 }

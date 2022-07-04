@@ -3,10 +3,14 @@ import SvelteContent from 'ember-cli-svelte/components/-private/svelte-content';
 import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { ensureSafeComponent } from '@embroider/util';
-import { detach, flush, insert, noop } from 'svelte/internal';
+import { /*detach,*/ flush, /*insert,*/ noop } from 'svelte/internal';
 
 class EmberSvelteComponent extends GlimmerComponent {
   svelteComponentClass;
+  @tracked defaultSlotElement;
+  defaultSlotAnchor;
+
+  @tracked showsDefaultSlot = false;
 
   #args = {};
   #component;
@@ -42,42 +46,7 @@ class EmberSvelteComponent extends GlimmerComponent {
 
   @action
   insertSvelteComponent() {
-    const fragment = new DocumentFragment();
-
-    // These overrides are meant to overcome some
-    // errors caused by the way that Glimmer handles
-    // its rendered elements.
-    fragment.removeChild = (child) => {
-      child.remove?.();
-    };
-
-    fragment.insertBefore = (node, reference) => {
-      const parent = (reference || {}).parentNode || fragment;
-      DocumentFragment.prototype.insertBefore.apply(parent, [node, reference]);
-    };
-
-    Object.defineProperty(fragment, 'parentNode', {
-      value: fragment,
-    });
-
-    const blockContent = ((startBound, endBound) => {
-      const nodes = [];
-
-      let currentNode = startBound.nextSibling;
-
-      while (currentNode !== endBound) {
-        nodes.push(currentNode);
-        currentNode = currentNode.nextSibling;
-      }
-
-      return nodes;
-    })(this.#startBound, this.#endBound);
-
-    fragment.replaceChildren(...blockContent);
-
     this._showReference = false;
-
-    let defaultSlotTarget;
 
     this.#component = new this.svelteComponentClass({
       // Doesn't seem to matter that the end-bound element
@@ -94,22 +63,18 @@ class EmberSvelteComponent extends GlimmerComponent {
         $$slots: {
           default: [
             () => ({
-              c: noop,
-              m(target, anchor) {
-                defaultSlotTarget = target;
-
-                insert(target, fragment, anchor);
+              c: () => {
+                this.showsDefaultSlot = true;
               },
-              d(detaching) {
+              m: (target, anchor) => {
+                this.defaultSlotElement = target;
+                this.defaultSlotAnchor = anchor;
+                this.showsDefaultSlot = true;
+              },
+              d: (detaching) => {
                 if (!detaching) return;
 
-                const childNodes = Array.from(
-                  defaultSlotTarget.childNodes || []
-                );
-
-                fragment.replaceChildren(...childNodes);
-
-                detach(fragment);
+                this.showsDefaultSlot = false;
               },
               l: noop,
             }),
