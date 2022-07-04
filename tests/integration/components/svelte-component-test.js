@@ -43,4 +43,12 @@ module('Integration | Component | svelte-component', function (hooks) {
 
     assert.dom('[data-test-can-import]').exists();
   });
+
+  test('it does not interfere with colocated file resolution', async function (assert) {
+    await render(hbs`
+      <Colocated />
+    `);
+
+    assert.dom('[data-test-colocated-name]').hasText('Zoey');
+  });
 });

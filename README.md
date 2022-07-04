@@ -5,7 +5,7 @@ Ember CLI Svelte
 
 This *experimental* add-on makes it possible to use [Svelte](https://svelte.dev) components within your Ember.js application.
 
-I whipped it together in an afternoon to test the feasibilty of the idea.  It is pre-alpha software and you should **only** use it **at your own risk** and with **extreme caution** in production.  There is no intent to support legacy versions of Ember.
+I whipped up the basic functionality in an afternoon to test the feasibilty of the idea.  It is pre-alpha software and you should **only** use it **at your own risk** and with **extreme caution** in production.  There is no intent to support legacy versions of Ember.
 
 
 ## Compatibility
@@ -20,6 +20,24 @@ I whipped it together in an afternoon to test the feasibilty of the idea.  It is
 ```
 ember install ember-cli-svelte
 ```
+
+The default blueprint will automatically modify your `app.js` file to use the extended resolver from this add-on instead of the default one from `ember-resolver`.
+
+In other words, the import of your `app.js` will go from looking like this:
+
+```javascript
+import Resolver from 'ember-resolver';
+```
+
+to this:
+
+```javascript
+import Resolver from 'ember-cli-svelte/resolver';
+```
+
+The extended resolver is necessary to support the colocation of regular component files alongside `.svelte` files.  In any case, you will need to use this resolver, so if you choose to use `npm install` instead of `ember install`, you must change this import by hand.
+
+If you choose to uninstall this add-on using `ember uninstall ember-cli-svelte`, your code will be reverted back to using `ember-resolver`.
 
 
 ## Usage
@@ -47,6 +65,8 @@ Outputs:
 ```hbs
 <h2>Hello, Tomster!</h2>
 ```
+
+### Block Content
 
 Svelte components can also take block content and use it in a default slot.
 
@@ -76,7 +96,8 @@ Outputs:
 
 Block content can be dynamic and the Svelte component can even dynamically show/hide the slot.
 
-Some monkey business is done behind the scenes to get this to work.  It has not been rigorously tested, but I haven't yet run into any issues testing it by hand.
+
+### Surrounding Element
 
 A surrounding DOM element can be defined with the special `<svelte::options>` tag in your Svelte component:
 
@@ -111,7 +132,37 @@ The inclusion of the `.svelte` file extension is both technically necessary and 
 
 Svelte component code is added individually to the build tree with the `.svelte.js` suffix.  Not only can they be imported in your Ember code just like any other module, but they are registered with the app and can be resolved that way.
 
-Be aware that if you have both a `.svelte` file and a `.hbs` file of the same component name, the `.svelte` one will take precedence and the `.hbs` template will be overwritten.  The same is true if you have a `.js` file with a conflicting name.
+
+### File Colocation
+
+Files of the same name as a `.svelte` file can be colocated.
+
+```
+app/
+├─ components/
+│  ├─ my-component.js
+│  ├─ my-component.svelte
+│  ├─ my-component.hbs
+```
+
+By this approach, you can have a generic JS module that you can import both in your `.svelte` component file and elsewhere.
+
+```hbs
+<!-- app/components/my-component.svelte -->
+
+<script>
+  import { toUppercase } from './my-component';
+
+  export let name;
+
+  $: uppercaseName = toUppercase(name);
+</script>
+
+<h2>{uppercaseName}</h2>
+```
+
+Be aware that the `.svelte` file will always take precedence over the `.js` file or a `.hbs` file in terms of what Ember will attempt to render when the component is resolved by name.
+
 
 ## Features
 

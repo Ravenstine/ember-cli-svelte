@@ -100,6 +100,30 @@ function compileSvelteComponent(tree, inputParsedPath, svelteComponentMarkup) {
     console.warn(`\n${warning.toString()}`);
   }
 
+  const { code } = transformSync(compiled.js.code, {
+    plugins: [
+      {
+        visitor: {
+          Program(path) {
+            path.pushContainer(
+              'body',
+              t.exportNamedDeclaration(
+                null,
+                [
+                  t.exportSpecifier(
+                    t.identifier('default'),
+                    t.identifier('GlimmerComponent')
+                  ),
+                ],
+                t.stringLiteral(`./--${inputParsedPath.name}`)
+              )
+            );
+          },
+        },
+      },
+    ],
+  });
+
   const compiledSvelteComponentParsedPath = { ...inputParsedPath };
 
   compiledSvelteComponentParsedPath.ext = '.js';
@@ -111,7 +135,7 @@ function compileSvelteComponent(tree, inputParsedPath, svelteComponentMarkup) {
     compiledSvelteComponentParsedPath
   );
 
-  tree.output.writeFileSync(compiledSvelteComponentPath, compiled.js.code, {
+  tree.output.writeFileSync(compiledSvelteComponentPath, code, {
     encoding: 'UTF-8',
   });
 
@@ -153,6 +177,7 @@ function buildGlimmerComponent(tree, inputParsedPath) {
   const glimmerComponentParsedPath = { ...inputParsedPath };
 
   glimmerComponentParsedPath.ext = '.js';
+  glimmerComponentParsedPath.name = `--${glimmerComponentParsedPath.name}`;
   glimmerComponentParsedPath.base = `${glimmerComponentParsedPath.name}${glimmerComponentParsedPath.ext}`;
 
   const glimmerComponentPath = path.format(glimmerComponentParsedPath);
@@ -166,6 +191,8 @@ function buildHBSTemplate(tree, inputParsedPath, vars, svelteOptions) {
   const glimmerTemplateParsedPath = { ...inputParsedPath };
   const tagName = svelteOptions.tag?.length ? svelteOptions.tag : null;
   glimmerTemplateParsedPath.ext = '.hbs';
+  // glimmerTemplateParsedPath.name = `${glimmerTemplateParsedPath.name}.glimmer`;
+  glimmerTemplateParsedPath.name = `--${glimmerTemplateParsedPath.name}`;
   glimmerTemplateParsedPath.base = `${glimmerTemplateParsedPath.name}${glimmerTemplateParsedPath.ext}`;
 
   const glimmerTemplatePath = path.format(glimmerTemplateParsedPath);
