@@ -1,5 +1,5 @@
 import GlimmerComponent from '@glimmer/component';
-import SvelteContent from 'ember-cli-svelte/components/-private/svelte-content';
+import OptionalTag from 'ember-cli-svelte/components/-private/optional-tag';
 import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { ensureSafeComponent } from '@embroider/util';
@@ -7,21 +7,18 @@ import { /*detach,*/ flush, /*insert,*/ noop } from 'svelte/internal';
 
 class EmberSvelteComponent extends GlimmerComponent {
   svelteComponentClass;
-  @tracked defaultSlotElement;
   defaultSlotAnchor;
 
+  @tracked defaultSlotElement;
   @tracked showsDefaultSlot = false;
+  @tracked showsAnchor = true;
 
   #args = {};
   #component;
-  #startBound;
   #endBound;
 
-  @tracked _showStartBound = true;
-  @tracked _showEndBound = true;
-
   get svelteContent() {
-    return ensureSafeComponent(SvelteContent, this);
+    return ensureSafeComponent(OptionalTag, this);
   }
 
   constructor(owner, args) {
@@ -31,17 +28,10 @@ class EmberSvelteComponent extends GlimmerComponent {
   }
 
   @action
-  getStartBound(element) {
-    this.#startBound = element;
-
-    this._showStartBound = false;
-  }
-
-  @action
   getEndBound(element) {
     this.#endBound = element;
 
-    this._showEndBound = false;
+    this.showsAnchor = false;
   }
 
   @action
@@ -49,7 +39,7 @@ class EmberSvelteComponent extends GlimmerComponent {
     this._showReference = false;
 
     this.#component = new this.svelteComponentClass({
-      // Doesn't seem to matter that the end-bound element
+      // Doesn't seem to matter that the anchor element
       // gets removed by Glimmer after the Svelte component renders.
       anchor: this.#endBound,
       target: this.#endBound.parentElement,

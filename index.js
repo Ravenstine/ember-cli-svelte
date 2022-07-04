@@ -172,9 +172,8 @@ function buildHBSTemplate(tree, inputParsedPath, vars, svelteOptions) {
   const ast = glimmer.preprocess(`
     {{#let (component this.svelteContent) as |SvelteContent|}}
       <SvelteContent ...attributes>
-        {{#if this._showStartBound}}<span {{did-insert this.getStartBound}}></span>{{/if}}
         {{#if this.defaultSlotElement}}{{#in-element this.defaultSlotElement nextSibling=this.defaultSlotAnchor}}{{#if this.showsDefaultSlot}}{{yield}}{{/if}}{{/in-element}}{{/if}}
-        {{#if this._showEndBound}}<span {{did-insert this.getEndBound}} {{did-insert this.insertSvelteComponent}}></span>{{/if}}
+        {{#if this.showsAnchor}}<span {{did-insert this.getEndBound}} {{did-insert this.insertSvelteComponent}}></span>{{/if}}
         {{did-update this.updateSvelteComponent}}
         {{will-destroy this.teardownSvelteComponent}}
       </SvelteContent>
