@@ -33,9 +33,9 @@ to this:
 import Resolver from 'ember-cli-svelte/resolver';
 ```
 
-The extended resolver is necessary to support the colocation of regular component files alongside `.svelte` files.  In any case, you will need to use this resolver, so if you choose to use `npm install` instead of `ember install`, you must change this import by hand.
+The extended resolver is necessary to support the resolution of `.svelte` files.  In any case, you will need to use this resolver, so if you choose to use `npm install` instead of `ember install`, you must change this import by hand.
 
-If you choose to uninstall this add-on using `ember uninstall ember-cli-svelte`, your code will be reverted back to using `ember-resolver`.
+If you uninstall this add-on using `ember uninstall ember-cli-svelte`, your code will be reverted back to using `ember-resolver`.
 
 
 ## Usage
@@ -64,10 +64,12 @@ Outputs:
 <h2>Hello, Tomster!</h2>
 ```
 
+Check out the [dummy](/tests/dummy) for more example usage.
+
 
 ### Svelte Component Imports
 
-Svelte components can import and use other Svelte components just like you would expect:
+Svelte components can import and use other Svelte components just like you would expect.
 
 ```hbs
 <!-- app/components/my-component.svelte -->
@@ -152,7 +154,7 @@ Within a Svelte component, you can access the Ember app owner object via the `ge
 Any Svelte components that are invoked by another Svelte component will automatically inherit this context.
 
 
-## Route Templates
+### Route Templates
 
 You can even use `.svelte` files for your route templates under `app/templates`.  The `model` and the `controller` for the route are passed in as props.
 
@@ -181,16 +183,24 @@ Both the Glimmer `{{outlet}}` and Svelte `<Outlet />` component behave in the sa
 Named outlets are not supported because they are no longer encouraged and will eventually be [deprecated](https://github.com/emberjs/rfcs/blob/master/text/0418-deprecate-route-render-methods.md).
 
 
-## Features
+### Ember Components
 
-This add-on currently supports only very basic features:
+You can also invoke Ember/Glimmer components from within a Svelte component.  This must be done by using the `component` function:
 
-- Invokes Svelte components in Glimmer/hbs templates
-- Forwards the reactivity of passed props
-- Supports passing block content to the default slot
-- Attribute spread (if wrapping element is specified)
+```hbs
+<script>
+  import { component } from 'ember-cli-svelte';
 
-There is no support (yet) for things like using `.svelte` files for route templates, dependency injection and lookups, Typescript, invoking Glimmer components within Svelte components, FastBoot compatibility (this will be *hard*), etc.
+  const MyComponent = component('my-component');
+</script>
+
+<MyComponent />
+```
+
+
+## Notes
+
+This add-on is not compatible with FastBoot.  It remains to be seen whether it will ever be fully compatible with FastBoot.  Typescript inside Svelte components also is not yet suppoorted.
 
 
 ## Contributing

@@ -1,9 +1,0 @@
-{{#let (-private/get-outlet-state) as |outletState|}}
-  {{#let (this.getEmberSvelteComponent outletState) as |emberSvelteComponent|}}
-    {{#if emberSvelteComponent}}
-      {{component emberSvelteComponent model=outletState.render.model controller=outletState.render.controller}}
-    {{else}}
-      {{component (-outlet)}}
-    {{/if}}
-  {{/let}}
-{{/let}}

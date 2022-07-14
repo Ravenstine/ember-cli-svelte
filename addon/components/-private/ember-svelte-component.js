@@ -3,27 +3,22 @@ import { tracked } from '@glimmer/tracking';
 import { getOwner } from '@ember/application';
 import { action } from '@ember/object';
 import { flush, noop } from 'svelte/internal';
-import { helper } from '@ember/component/helper';
 import { OWNER } from '@glimmer/owner';
 import { getSvelteOptions } from 'ember-cli-svelte/lib/svelte-options';
+import { writable } from 'svelte/store';
 
 export default class EmberSvelteComponent extends Component {
   svelteComponentClass;
   svelteComponentInstance;
   svelteComponentAnchor = new Comment();
-  defaultSlotAnchor;
+  outletStateStore = writable();
 
   @tracked defaultSlotElement;
+  @tracked defaultSlotAnchor;
   @tracked showsDefaultSlot = false;
 
-  get argsValues() {
-    const argsValues = [];
-
-    for (const key in this.args) {
-      argsValues.push(this.args[key]);
-    }
-
-    return argsValues;
+  get frozenArgs() {
+    return Object.freeze({ ...this.args });
   }
 
   get tagName() {
@@ -35,13 +30,23 @@ export default class EmberSvelteComponent extends Component {
   constructor(owner, args) {
     super(...arguments);
 
-    if (args.svelteComponentClass)
-      this.svelteComponentClass = args.svelteComponentClass;
+    if (args.svelteComponentClass) {
+      if (typeof args.svelteComponentClass === 'string') {
+        this.svelteComponentClass =
+          owner.__registry__.fallback.resolver.resolve(
+            `template:${args.svelteComponentClass}`
+          );
+      } else {
+        this.svelteComponentClass = args.svelteComponentClass;
+      }
+    }
   }
 
   @action
-  insertSvelteComponent() {
+  insertSvelteComponent([outletState]) {
     const owner = getOwner(this);
+
+    this.outletStateStore.set(outletState);
 
     this.svelteComponentInstance = new this.svelteComponentClass({
       // Doesn't seem to matter that the anchor element
@@ -50,10 +55,10 @@ export default class EmberSvelteComponent extends Component {
       target: this.svelteComponentAnchor.parentElement,
       context: new Map([
         ['owner', owner],
-        ['outletState', this.outletState || null],
+        ['outletState', this.outletStateStore || null],
       ]),
       props: {
-        ...this.args,
+        ...this.frozenArgs,
         [OWNER]: owner,
         $$scope: {},
         // See: https://github.com/sveltejs/svelte/issues/2588
@@ -85,20 +90,13 @@ export default class EmberSvelteComponent extends Component {
   }
 
   @action
-  updateSvelteComponent() {
+  updateSvelteComponent([outletState]) {
     const component = this.svelteComponentInstance;
 
-    component?.$set(this.args);
+    this.outletStateStore.set(outletState);
+
+    component?.$set(this.frozenArgs);
 
     flush();
-  }
-
-  updateSvelteComponentHelper = helper(() => {
-    this.updateSvelteComponent();
-  });
-
-  @action
-  teardownSvelteComponent() {
-    this.svelteComponentInstance.$destroy();
   }
 }
