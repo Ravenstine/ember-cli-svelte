@@ -4,75 +4,79 @@ const Plugin = require('broccoli-plugin');
 const path = require('path');
 const { compile /*, parse, preprocess, walk*/ } = require('svelte/compiler');
 const { transformSync } = require('@babel/core');
+const { default: template } = require('@babel/template');
 const t = require('@babel/types');
-const glimmer = require('@glimmer/syntax');
 
 module.exports = {
   name: require('./package').name,
 
-  included(app) {
-    this._super.included.apply(this, arguments);
-
-    // deno-lint-ignore no-this-alias
-    let current = this;
-
-    do {
-      app = current.app || app;
-    } while (current.parent.parent && (current = current.parent));
-
-    this.app = app;
-  },
-
   preprocessTree(type, tree) {
-    if (type === 'template') {
-      return new SveltePlugin([tree]);
-    }
+    if (type !== 'template') return tree;
 
-    return tree;
+    return new SveltePlugin([tree, this.treeFor('addon')], {});
   },
 };
 
 class SveltePlugin extends Plugin {
   constructor(inputNodes, options = {}) {
     super(inputNodes, options);
+
+    this.options = options;
+    this.inputNodes = inputNodes;
   }
 
   build() {
-    const walkOptions = {
-      includeBasePath: true,
-    };
-
-    for (const entry of this.input.entries('./', walkOptions)) {
+    walkPluginDirs(this, ({ tree, entry, file, isAddon }) => {
       const parsedPath = path.parse(entry.relativePath);
-      const isDirectory = this.input
+
+      if (parsedPath.ext !== '.svelte') {
+        tree.output.writeFileSync(entry.relativePath, file, {
+          encoding: 'UTF-8',
+        });
+
+        return;
+      }
+
+      compileSvelteComponent({
+        tree,
+        entry,
+        svelteComponentMarkup: file,
+        useAMD: isAddon,
+      });
+    });
+  }
+}
+
+function walkPluginDirs(plugin, callback) {
+  const walkOptions = {
+    includeBasePath: true,
+  };
+
+  const appEntries = plugin.input.at(0).fs.entries('./', walkOptions);
+  const addonEntries = plugin.input.at(1).fs.entries('./', walkOptions);
+
+  for (const entries of [appEntries, addonEntries]) {
+    for (const entry of entries) {
+      const isDirectory = plugin.input
         .lstatSync(entry.relativePath)
         .isDirectory();
 
       if (isDirectory) {
-        this.output.mkdirSync(entry.relativePath);
+        plugin.output.mkdirSync(entry.relativePath);
 
         continue;
       }
 
-      const file = this.input.readFileSync(entry.relativePath, {
+      const file = plugin.input.readFileSync(entry.relativePath, {
         encoding: 'UTF-8',
       });
 
-      if (parsedPath.ext !== '.svelte') {
-        this.output.writeFileSync(entry.relativePath, file, {
-          encoding: 'UTF-8',
-        });
-
-        continue;
-      }
-
-      const compiled = compileSvelteComponent(this, parsedPath, file);
-
-      buildGlimmerComponent(this, parsedPath);
-
-      const svelteOptions = parseSvelteOptions(compiled);
-
-      buildHBSTemplate(this, parsedPath, compiled.vars, svelteOptions);
+      callback({
+        tree: plugin,
+        entry,
+        file,
+        isAddon: entries === addonEntries,
+      });
     }
   }
 }
@@ -88,8 +92,17 @@ function parseSvelteOptions(compilation) {
   }, {});
 }
 
-function compileSvelteComponent(tree, inputParsedPath, svelteComponentMarkup) {
-  const compiled = compile(svelteComponentMarkup, { format: 'esm' });
+function compileSvelteComponent({
+  tree,
+  entry,
+  svelteComponentMarkup,
+  useAMD,
+}) {
+  const inputParsedPath = path.parse(entry.relativePath);
+  const compiled = compile(svelteComponentMarkup, {
+    format: 'esm',
+    preserveComments: true,
+  });
 
   for (const warning of compiled.warnings) {
     // Since we are using the `tag` option but aren't
@@ -100,30 +113,51 @@ function compileSvelteComponent(tree, inputParsedPath, svelteComponentMarkup) {
     console.warn(`\n${warning.toString()}`);
   }
 
-  const { code } = transformSync(compiled.js.code, {
-    plugins: [
-      {
-        visitor: {
-          Program(path) {
-            path.pushContainer(
-              'body',
-              t.exportNamedDeclaration(
-                null,
-                [
-                  t.exportSpecifier(
-                    t.identifier('default'),
-                    t.identifier('GlimmerComponent')
-                  ),
-                ],
-                t.stringLiteral(`./--${inputParsedPath.name}`)
-              )
-            );
-          },
+  const svelteOptions = parseSvelteOptions(compiled);
+
+  const plugins = [
+    {
+      visitor: {
+        Program(path) {
+          const setOptionsImport = template.ast(`
+            import { setSvelteOptions } from 'ember-cli-svelte/lib/svelte-options';
+          `);
+
+          path.unshiftContainer('body', setOptionsImport);
+        },
+        ExportDefaultDeclaration(path) {
+          const identifier = path.node.declaration;
+
+          if (identifier.type !== 'Identifier') return;
+
+          const callExpression = t.callExpression(
+            t.identifier('setSvelteOptions'),
+            [
+              t.identifier(identifier.name),
+              template.ast(`(${JSON.stringify(svelteOptions)})`).expression,
+            ]
+          );
+
+          path.node.declaration = callExpression;
         },
       },
-    ],
-  });
+    },
+  ];
 
+  // For some reason, when operating on addon/ directories and merging that
+  // with the tree being preprocessed, unlike files under app/ directories,
+  // AMD doesn't seem to be getting applied to files in addon-tree-output/.
+  // Why?  I dunno.  This is the only solution I've found to support hosting
+  // plain .svelte files in the addon/ directory and allowing them to be
+  // imported within the app under the expected add-on-name/*.svelte path.
+  if (useAMD)
+    plugins.push([
+      '@babel/plugin-transform-modules-amd',
+      { moduleId: entry.relativePath },
+    ]);
+
+  const { code } = transformSync(compiled.js.code, { plugins });
+  console.log(code);
   const compiledSvelteComponentParsedPath = { ...inputParsedPath };
 
   compiledSvelteComponentParsedPath.ext = '.js';
@@ -134,108 +168,15 @@ function compileSvelteComponent(tree, inputParsedPath, svelteComponentMarkup) {
   const compiledSvelteComponentPath = path.format(
     compiledSvelteComponentParsedPath
   );
+  console.log(path.join(entry.basePath, compiledSvelteComponentPath));
 
-  tree.output.writeFileSync(compiledSvelteComponentPath, code, {
-    encoding: 'UTF-8',
-  });
-
-  return compiled;
-}
-
-function buildGlimmerComponent(tree, inputParsedPath) {
-  const { code: glimmerComponentCode } = transformSync(
-    `
-    import EmberSvelteComponent from 'ember-cli-svelte/components/-private/ember-svelte-component';
-
-    export default class extends EmberSvelteComponent {
-      constructor() {
-        super(...arguments);
-
-        this.svelteComponentClass = SvelteComponent;
-      }
-    }
-  `,
+  tree.output.writeFileSync(
+    path.join(entry.basePath, compiledSvelteComponentPath),
+    code,
     {
-      plugins: [
-        {
-          visitor: {
-            Program(path) {
-              path.unshiftContainer(
-                'body',
-                t.importDeclaration(
-                  [t.importDefaultSpecifier(t.identifier('SvelteComponent'))],
-                  t.stringLiteral(`./${inputParsedPath.base}`)
-                )
-              );
-            },
-          },
-        },
-      ],
+      encoding: 'UTF-8',
     }
   );
 
-  const glimmerComponentParsedPath = { ...inputParsedPath };
-
-  glimmerComponentParsedPath.ext = '.js';
-  glimmerComponentParsedPath.name = `--${glimmerComponentParsedPath.name}`;
-  glimmerComponentParsedPath.base = `${glimmerComponentParsedPath.name}${glimmerComponentParsedPath.ext}`;
-
-  const glimmerComponentPath = path.format(glimmerComponentParsedPath);
-
-  tree.output.writeFileSync(glimmerComponentPath, glimmerComponentCode, {
-    encoding: 'UTF-8',
-  });
-}
-
-function buildHBSTemplate(tree, inputParsedPath, vars, svelteOptions) {
-  const glimmerTemplateParsedPath = { ...inputParsedPath };
-  const tagName = svelteOptions.tag?.length ? svelteOptions.tag : null;
-  glimmerTemplateParsedPath.ext = '.hbs';
-  // glimmerTemplateParsedPath.name = `${glimmerTemplateParsedPath.name}.glimmer`;
-  glimmerTemplateParsedPath.name = `--${glimmerTemplateParsedPath.name}`;
-  glimmerTemplateParsedPath.base = `${glimmerTemplateParsedPath.name}${glimmerTemplateParsedPath.ext}`;
-
-  const glimmerTemplatePath = path.format(glimmerTemplateParsedPath);
-  const ast = glimmer.preprocess(`
-    {{#let (component this.svelteContent) as |SvelteContent|}}
-      <SvelteContent ...attributes>
-        {{#if this.defaultSlotElement}}{{#in-element this.defaultSlotElement nextSibling=this.defaultSlotAnchor}}{{#if this.showsDefaultSlot}}{{yield}}{{/if}}{{/in-element}}{{/if}}
-        {{#if this.showsSvelteComponentAnchor}}<span {{did-insert this.insertSvelteComponent}}></span>{{/if}}
-        {{did-update this.updateSvelteComponent}}
-        {{will-destroy this.teardownSvelteComponent}}
-      </SvelteContent>
-    {{/let}}
-  `);
-
-  glimmer.traverse(ast, {
-    ElementNode(node) {
-      if (!tagName || node.tag !== 'SvelteContent') return;
-
-      node.attributes.unshift(
-        glimmer.builders.attr('@tagName', glimmer.builders.text(tagName))
-      );
-    },
-    MustacheStatement(node) {
-      connectUpdateProps(node, vars);
-    },
-    ElementModifierStatement(node) {
-      connectUpdateProps(node, vars);
-    },
-  });
-
-  const glimmerTemplateCode = glimmer.print(ast);
-
-  tree.output.writeFileSync(glimmerTemplatePath, glimmerTemplateCode, {
-    encoding: 'UTF-8',
-  });
-}
-
-function connectUpdateProps(node, vars) {
-  if (node.path.original !== 'did-update') return;
-
-  for (const { export_name } of vars) {
-    if (!export_name) continue;
-
-    node.params.push(glimmer.builders.path(`@${export_name}`));
-  }
+  return compiled;
 }

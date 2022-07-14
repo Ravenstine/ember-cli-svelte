@@ -53,14 +53,6 @@ module('Integration | Component | svelte-component', function (hooks) {
     assert.dom('[data-test-colocated-name]').hasText('Zoey');
   });
 
-  test('it supports colocated JS file with inherited component', async function (assert) {
-    await render(hbs`
-      <ColocatedInherit />
-    `);
-
-    assert.dom('[data-test-colocated-name]').hasText('Tomster');
-  });
-
   test('it supports module context', function (assert) {
     assert.deepEqual(moduleContextMessage, 'Ember is Omakase');
   });

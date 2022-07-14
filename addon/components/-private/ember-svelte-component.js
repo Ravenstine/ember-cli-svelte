@@ -1,32 +1,60 @@
-import GlimmerComponent from '@glimmer/component';
-import OptionalTag from 'ember-cli-svelte/components/-private/optional-tag';
+import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
+import { getOwner } from '@ember/application';
 import { action } from '@ember/object';
-import { ensureSafeComponent } from '@embroider/util';
-import { /*detach,*/ flush, /*insert,*/ noop } from 'svelte/internal';
+import { flush, noop } from 'svelte/internal';
+import { helper } from '@ember/component/helper';
+import { OWNER } from '@glimmer/owner';
+import { getSvelteOptions } from 'ember-cli-svelte/lib/svelte-options';
 
-class EmberSvelteComponent extends GlimmerComponent {
+export default class EmberSvelteComponent extends Component {
   svelteComponentClass;
   svelteComponentInstance;
+  svelteComponentAnchor = new Comment();
   defaultSlotAnchor;
 
   @tracked defaultSlotElement;
-  @tracked showsSvelteComponentAnchor = true;
   @tracked showsDefaultSlot = false;
 
-  get svelteContent() {
-    return ensureSafeComponent(OptionalTag, this);
+  get argsValues() {
+    const argsValues = [];
+
+    for (const key in this.args) {
+      argsValues.push(this.args[key]);
+    }
+
+    return argsValues;
+  }
+
+  get tagName() {
+    const { tag } = getSvelteOptions(this.svelteComponentClass);
+
+    return typeof tag === 'string' ? tag : '';
+  }
+
+  constructor(owner, args) {
+    super(...arguments);
+
+    if (args.svelteComponentClass)
+      this.svelteComponentClass = args.svelteComponentClass;
   }
 
   @action
-  insertSvelteComponent(svelteComponentAnchor) {
+  insertSvelteComponent() {
+    const owner = getOwner(this);
+
     this.svelteComponentInstance = new this.svelteComponentClass({
       // Doesn't seem to matter that the anchor element
       // gets removed by Glimmer after the Svelte component renders.
-      anchor: svelteComponentAnchor,
-      target: svelteComponentAnchor.parentElement,
+      anchor: this.svelteComponentAnchor,
+      target: this.svelteComponentAnchor.parentElement,
+      context: new Map([
+        ['owner', owner],
+        ['outletState', this.outletState || null],
+      ]),
       props: {
         ...this.args,
+        [OWNER]: owner,
         $$scope: {},
         // See: https://github.com/sveltejs/svelte/issues/2588
         // This is here to support passing a block from the
@@ -35,9 +63,7 @@ class EmberSvelteComponent extends GlimmerComponent {
         $$slots: {
           default: [
             () => ({
-              c: () => {
-                this.showsSvelteComponentAnchor = false;
-              },
+              c: noop,
               m: (target, anchor) => {
                 this.defaultSlotElement = target;
                 this.defaultSlotAnchor = anchor;
@@ -54,21 +80,25 @@ class EmberSvelteComponent extends GlimmerComponent {
         },
       },
     });
+
+    flush();
   }
 
   @action
   updateSvelteComponent() {
     const component = this.svelteComponentInstance;
 
-    component.$set(this.args);
+    component?.$set(this.args);
 
     flush();
   }
+
+  updateSvelteComponentHelper = helper(() => {
+    this.updateSvelteComponent();
+  });
 
   @action
   teardownSvelteComponent() {
     this.svelteComponentInstance.$destroy();
   }
 }
-
-export default EmberSvelteComponent;

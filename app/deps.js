@@ -1,0 +1,11 @@
+import 'svelte';
+// import action from 'svelte/action';
+// import animate from 'svelte/animate';
+// import easing from 'svelte/easing';
+import 'svelte/internal';
+// import motion from 'svelte/motion';
+// import store from 'svelte/store';
+// import transition from 'svelte/transition';
+// import types from 'svelte/types';
+import 'ember-cli-svelte/outlet.svelte';
+import 'ember-cli-svelte/components/-private/ember-component-shim.svelte';
