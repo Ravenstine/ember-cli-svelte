@@ -157,7 +157,7 @@ function compileSvelteComponent({
     ]);
 
   const { code } = transformSync(compiled.js.code, { plugins });
-  console.log(code);
+
   const compiledSvelteComponentParsedPath = { ...inputParsedPath };
 
   compiledSvelteComponentParsedPath.ext = '.js';

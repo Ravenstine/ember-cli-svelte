@@ -3,7 +3,6 @@ import { tracked } from '@glimmer/tracking';
 import { getOwner } from '@ember/application';
 import { action } from '@ember/object';
 import { flush, noop } from 'svelte/internal';
-import { helper } from '@ember/component/helper';
 import { OWNER } from '@glimmer/owner';
 import { getSvelteOptions } from 'ember-cli-svelte/lib/svelte-options';
 
@@ -16,14 +15,8 @@ export default class EmberSvelteComponent extends Component {
   @tracked defaultSlotElement;
   @tracked showsDefaultSlot = false;
 
-  get argsValues() {
-    const argsValues = [];
-
-    for (const key in this.args) {
-      argsValues.push(this.args[key]);
-    }
-
-    return argsValues;
+  get frozenArgs() {
+    return Object.freeze({ ...this.args });
   }
 
   get tagName() {
@@ -53,7 +46,7 @@ export default class EmberSvelteComponent extends Component {
         ['outletState', this.outletState || null],
       ]),
       props: {
-        ...this.args,
+        ...this.frozenArgs,
         [OWNER]: owner,
         $$scope: {},
         // See: https://github.com/sveltejs/svelte/issues/2588
@@ -88,14 +81,10 @@ export default class EmberSvelteComponent extends Component {
   updateSvelteComponent() {
     const component = this.svelteComponentInstance;
 
-    component?.$set(this.args);
+    component?.$set(this.frozenArgs);
 
     flush();
   }
-
-  updateSvelteComponentHelper = helper(() => {
-    this.updateSvelteComponent();
-  });
 
   @action
   teardownSvelteComponent() {

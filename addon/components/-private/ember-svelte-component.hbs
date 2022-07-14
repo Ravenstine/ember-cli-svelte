@@ -3,9 +3,7 @@
     {{this.svelteComponentAnchor}}
     {{did-insert this.insertSvelteComponent}}
     {{#if this.defaultSlotElement}}{{#in-element this.defaultSlotElement nextSibling=this.defaultSlotAnchor}}{{#if this.showsDefaultSlot}}{{yield}}{{/if}}{{/in-element}}{{/if}}
-    {{#each this.argsValues as |value|}}
-      {{helper this.updateSvelteComponentHelper}}
-    {{/each}}
+    {{did-update this.updateSvelteComponent this.frozenArgs}}
     {{will-destroy this.teardownSvelteComponent}}
   </wrappingElement>
 {{/let}}
