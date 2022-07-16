@@ -1,6 +1,7 @@
 import { getContext } from 'svelte';
+import Shim from 'ember-cli-svelte/components/-private/ember-component-shim.svelte';
 
-export const EMBER_COMPONENT_CLASS = Symbol('EMBER_COMPONENT_CLASS');
+export const EMBER_COMPONENT_NAME_OR_CLASS = Symbol('EMBER_COMPONENT_NAME_OR_CLASS');
 
 /**
  * Performs a lookup on the Ember app owner
@@ -50,4 +51,26 @@ export function resolveRegistration(fullName) {
   if (!parsedName) return null;
 
   return owner.resolveRegistration(fullName);
+}
+
+/**
+ * Takes either a registered component name or a valid Ember/Glimmer component
+ * class and wraps it in a Svelte component that can be used to invoke it
+ *
+ * @param {string|class} nameOrClass
+ **/
+export function component(nameOrClass) {
+  return class extends Shim {
+    constructor(params) {
+      const props = {
+        ...(params.props || {}),
+        [EMBER_COMPONENT_NAME_OR_CLASS]: nameOrClass,
+      };
+
+      super({
+        ...params,
+        props,
+      });
+    }
+  };
 }

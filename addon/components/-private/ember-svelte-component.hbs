@@ -1,9 +1,10 @@
-{{#let (element this.tagName) as |wrappingElement|}}
-  <wrappingElement ...attributes>
-    {{this.svelteComponentAnchor}}
-    {{did-insert this.insertSvelteComponent}}
-    {{#if this.defaultSlotElement}}{{#in-element this.defaultSlotElement nextSibling=this.defaultSlotAnchor}}{{#if this.showsDefaultSlot}}{{yield}}{{/if}}{{/in-element}}{{/if}}
-    {{did-update this.updateSvelteComponent this.frozenArgs}}
-    {{will-destroy this.teardownSvelteComponent}}
-  </wrappingElement>
+{{#let (-private/get-outlet-state) as |outletState|}}
+  {{#let (element this.tagName) as |wrappingElement|}}
+    <wrappingElement ...attributes>
+      {{this.svelteComponentAnchor}}
+      {{did-insert this.insertSvelteComponent outletState}}
+      {{#if this.defaultSlotElement}}{{#in-element this.defaultSlotElement nextSibling=this.defaultSlotAnchor insertBefore=null}}{{#if this.showsDefaultSlot}}{{yield}}{{/if}}{{/in-element}}{{/if}}
+      {{did-update this.updateSvelteComponent outletState this.frozenArgs}}
+    </wrappingElement>
+  {{/let}}
 {{/let}}

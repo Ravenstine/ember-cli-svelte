@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Dummy</title>
+    <title>SuperRentals</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -10,6 +10,21 @@
 
     <link integrity="" rel="stylesheet" href="{{rootURL}}assets/vendor.css">
     <link integrity="" rel="stylesheet" href="{{rootURL}}assets/dummy.css">
+
+    <script>
+      if (window.location.search.indexOf('deterministic') >= 0) {
+        let style = document.createElement('style');
+
+        style.appendChild(document.createTextNode(`
+          *, *::before, *::after {
+            transition-delay: 0s !important;
+            transition-duration: 0s !important;
+          }
+        `));
+
+        document.head.appendChild(style);
+      }
+    </script>
 
     {{content-for "head-footer"}}
   </head>

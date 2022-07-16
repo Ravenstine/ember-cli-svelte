@@ -10,10 +10,19 @@ const t = require('@babel/types');
 module.exports = {
   name: require('./package').name,
 
-  preprocessTree(type, tree) {
-    if (type !== 'template') return tree;
+  setupPreprocessorRegistry(type, registry) {
+    registry.add('template', {
+      name: 'ember-cli-svelte',
+      ext: 'svelte',
+      _addon: this,
+      toTree(tree) {
+        return new SveltePlugin([tree], {});
+      },
+    });
 
-    return new SveltePlugin([tree, this.treeFor('addon')], {});
+    if (type === 'parent') {
+      this.parentRegistry = registry;
+    }
   },
 };
 
@@ -23,10 +32,12 @@ class SveltePlugin extends Plugin {
 
     this.options = options;
     this.inputNodes = inputNodes;
+    this.name = 'ember-cli-svelte';
+    this.ext = ['svelte'];
   }
 
   build() {
-    walkPluginDirs(this, ({ tree, entry, file, isAddon }) => {
+    walkPluginDirs(this, ({ tree, entry, file }) => {
       const parsedPath = path.parse(entry.relativePath);
 
       if (parsedPath.ext !== '.svelte') {
@@ -41,7 +52,6 @@ class SveltePlugin extends Plugin {
         tree,
         entry,
         svelteComponentMarkup: file,
-        useAMD: isAddon,
       });
     });
   }
@@ -50,12 +60,29 @@ class SveltePlugin extends Plugin {
 function walkPluginDirs(plugin, callback) {
   const walkOptions = {
     includeBasePath: true,
+    // directories: false,
   };
 
-  const appEntries = plugin.input.at(0).fs.entries('./', walkOptions);
-  const addonEntries = plugin.input.at(1).fs.entries('./', walkOptions);
+  let i = 0;
 
-  for (const entries of [appEntries, addonEntries]) {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const inputNode = plugin.input.at(i);
+
+    i++;
+
+    if (!inputNode) break;
+
+    const entries = (() => {
+      try {
+        return inputNode.fs.entries('./', walkOptions);
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!entries) break;
+
     for (const entry of entries) {
       const isDirectory = plugin.input
         .lstatSync(entry.relativePath)
@@ -75,7 +102,6 @@ function walkPluginDirs(plugin, callback) {
         tree: plugin,
         entry,
         file,
-        isAddon: entries === addonEntries,
       });
     }
   }
@@ -92,12 +118,7 @@ function parseSvelteOptions(compilation) {
   }, {});
 }
 
-function compileSvelteComponent({
-  tree,
-  entry,
-  svelteComponentMarkup,
-  useAMD,
-}) {
+function compileSvelteComponent({ tree, entry, svelteComponentMarkup }) {
   const inputParsedPath = path.parse(entry.relativePath);
   const compiled = compile(svelteComponentMarkup, {
     format: 'esm',
@@ -144,18 +165,6 @@ function compileSvelteComponent({
     },
   ];
 
-  // For some reason, when operating on addon/ directories and merging that
-  // with the tree being preprocessed, unlike files under app/ directories,
-  // AMD doesn't seem to be getting applied to files in addon-tree-output/.
-  // Why?  I dunno.  This is the only solution I've found to support hosting
-  // plain .svelte files in the addon/ directory and allowing them to be
-  // imported within the app under the expected add-on-name/*.svelte path.
-  if (useAMD)
-    plugins.push([
-      '@babel/plugin-transform-modules-amd',
-      { moduleId: entry.relativePath },
-    ]);
-
   const { code } = transformSync(compiled.js.code, { plugins });
 
   const compiledSvelteComponentParsedPath = { ...inputParsedPath };
@@ -168,15 +177,10 @@ function compileSvelteComponent({
   const compiledSvelteComponentPath = path.format(
     compiledSvelteComponentParsedPath
   );
-  console.log(path.join(entry.basePath, compiledSvelteComponentPath));
 
-  tree.output.writeFileSync(
-    path.join(entry.basePath, compiledSvelteComponentPath),
-    code,
-    {
-      encoding: 'UTF-8',
-    }
-  );
+  tree.output.writeFileSync(compiledSvelteComponentPath, code, {
+    encoding: 'UTF-8',
+  });
 
   return compiled;
 }
