@@ -1,7 +1,9 @@
 import { getContext } from 'svelte';
 import Shim from 'ember-cli-svelte/components/-private/ember-component-shim.svelte';
 
-export const EMBER_COMPONENT_NAME_OR_CLASS = Symbol('EMBER_COMPONENT_NAME_OR_CLASS');
+export const EMBER_COMPONENT_NAME_OR_CLASS = Symbol(
+  'EMBER_COMPONENT_NAME_OR_CLASS'
+);
 
 /**
  * Performs a lookup on the Ember app owner
