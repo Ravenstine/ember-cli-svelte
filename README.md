@@ -8,9 +8,11 @@ This *experimental* add-on makes it possible to use [Svelte](https://svelte.dev)
 
 ## Compatibility
 
-* Ember.js v3.24 or above
-* Ember CLI v3.24 or above
+* Ember.js v3.28 or above
+* Ember CLI v3.28 or above
 * Node.js v14 or above
+
+There is no intention to support versions of Ember before v3.28.
 
 
 ## Installation

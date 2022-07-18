@@ -3,13 +3,13 @@
   import { onMount, onDestroy, getContext } from 'svelte';
   import { setOwner } from '@ember/application';
 
-  const [self] = arguments;
   const owner = getContext('owner');
   const application = owner.lookup('application:main');
   const environment = owner.lookup('-environment:main');
   const template = owner.lookup('template:-outlet');
   const { OutletView } = Ember.__loader.require('@ember/-internals/glimmer/index');
   const params = {
+    _environment: environment,
     environment,
     application,
     template,
