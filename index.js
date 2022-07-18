@@ -6,9 +6,24 @@ const { compile /*, parse, preprocess, walk*/ } = require('svelte/compiler');
 const { transformSync } = require('@babel/core');
 const { default: template } = require('@babel/template');
 const t = require('@babel/types');
+const VersionChecker = require('ember-cli-version-checker');
 
 module.exports = {
   name: require('./package').name,
+
+  included() {
+    const checker = new VersionChecker(this.project);
+    const ember = checker.for('ember-source');
+
+    if (ember.lt('3.28.0')) {
+      console.error(
+        '\x1b[31m%s\x1b[0m',
+        `\nember-cli-svelte requires a version of ember-source >= 3.28.0.  Your app is using ember-source ${ember.version} and is likely to encounter errors.  Please update to a more recent version of ember-source.\n`
+      );
+    }
+
+    this._super(...arguments);
+  },
 
   setupPreprocessorRegistry(type, registry) {
     registry.add('template', {
