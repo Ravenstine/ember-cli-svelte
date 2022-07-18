@@ -1,7 +1,7 @@
 <script>
   import Ember from 'ember';
   import { onMount, onDestroy, getContext } from 'svelte';
-  import { OWNER } from '@glimmer/owner';
+  import { setOwner } from '@ember/application';
 
   const [self] = arguments;
   const owner = getContext('owner');
@@ -9,12 +9,15 @@
   const environment = owner.lookup('-environment:main');
   const template = owner.lookup('template:-outlet');
   const { OutletView } = Ember.__loader.require('@ember/-internals/glimmer/index');
-  const view = OutletView.create({
+  const params = {
     environment,
-    [OWNER]: owner,
     application,
     template,
-  });
+  };
+
+  setOwner(params, owner);
+
+  const view = OutletView.create(params);
   const outletState = getContext('outletState');
 
   let anchor;

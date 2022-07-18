@@ -3,7 +3,7 @@ import { tracked } from '@glimmer/tracking';
 import { getOwner } from '@ember/application';
 import { action } from '@ember/object';
 import { flush, noop } from 'svelte/internal';
-import { OWNER } from '@glimmer/owner';
+import { setOwner } from '@ember/application';
 import { getSvelteOptions } from 'ember-cli-svelte/lib/svelte-options';
 import { writable } from 'svelte/store';
 
@@ -48,6 +48,35 @@ export default class EmberSvelteComponent extends Component {
 
     this.outletStateStore.set(outletState);
 
+    const props = {
+      ...this.frozenArgs,
+      $$scope: {},
+      // See: https://github.com/sveltejs/svelte/issues/2588
+      // This is here to support passing a block from the
+      // Glimmer component to the default slot of the Svelte
+      // component.
+      $$slots: {
+        default: [
+          () => ({
+            c: noop,
+            m: (target, anchor) => {
+              this.defaultSlotElement = target;
+              this.defaultSlotAnchor = anchor;
+              this.showsDefaultSlot = true;
+            },
+            d: (detaching) => {
+              if (!detaching) return;
+
+              this.showsDefaultSlot = false;
+            },
+            l: noop,
+          }),
+        ],
+      },
+    };
+
+    setOwner(props, owner);
+
     this.svelteComponentInstance = new this.svelteComponentClass({
       // Doesn't seem to matter that the anchor element
       // gets removed by Glimmer after the Svelte component renders.
@@ -57,33 +86,7 @@ export default class EmberSvelteComponent extends Component {
         ['owner', owner],
         ['outletState', this.outletStateStore || null],
       ]),
-      props: {
-        ...this.frozenArgs,
-        [OWNER]: owner,
-        $$scope: {},
-        // See: https://github.com/sveltejs/svelte/issues/2588
-        // This is here to support passing a block from the
-        // Glimmer component to the default slot of the Svelte
-        // component.
-        $$slots: {
-          default: [
-            () => ({
-              c: noop,
-              m: (target, anchor) => {
-                this.defaultSlotElement = target;
-                this.defaultSlotAnchor = anchor;
-                this.showsDefaultSlot = true;
-              },
-              d: (detaching) => {
-                if (!detaching) return;
-
-                this.showsDefaultSlot = false;
-              },
-              l: noop,
-            }),
-          ],
-        },
-      },
+      props,
     });
 
     flush();

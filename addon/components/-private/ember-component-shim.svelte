@@ -1,7 +1,7 @@
 <script>
   import { getContext, onMount, onDestroy } from 'svelte';
   import { getComponentTemplate } from '@ember/component';
-  import { OWNER } from '@glimmer/owner';
+  import { setOwner } from '@ember/application';
   import { EMBER_COMPONENT_NAME_OR_CLASS } from '../../index';
   import ShimView from './ember-component-shim-view';
 
@@ -17,14 +17,17 @@
   const layout = getComponentTemplate(ShimView);
 
   onMount(() => {
-    let view = ShimView.create({
-      [OWNER]: owner,
+    const params = {
       layout,
       props,
       emberComponentNameOrClass: props[EMBER_COMPONENT_NAME_OR_CLASS],
       defaultBlockAnchor,
       defaultBlockElement,
-    });
+    };
+
+    setOwner(params, owner);
+
+    let view = ShimView.create(params);
 
     view.renderer.appendTo(view, container);
 
