@@ -33,7 +33,6 @@ module.exports = {
       ext: 'svelte',
       _addon: this,
       toTree(tree) {
-        console.log('did preoprocess!');
         return new SveltePlugin([tree], {});
       },
     });
