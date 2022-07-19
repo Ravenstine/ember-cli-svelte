@@ -5,17 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0]
 ### Added
 - Allow use of Svelte components as route templates
 - Support invoking Ember components within Svelte components
 - Provide API for lookups etc.
-
 ### Modified
 - Replace document fragment hack with direct Glimmer integration for default slot
 - Replace AST transformation in favor of a runtime approach
 - Fix bug in the build process that could cause file to be written to the actual project directory
 - Add Svelte as a separate dependency during add-on install
+- Dropped support for
 
 ## [0.1.1] - 2022-07-01
 ### Modified
