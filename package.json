@@ -1,9 +1,10 @@
 {
   "name": "ember-cli-svelte",
   "version": "0.2.0",
-  "description": "Cybernetically-enhance your ambitious Ember apps with Svelte",
+  "description": "Cybernetically-enhance your Ember apps with Svelte",
   "keywords": [
-    "ember-addon"
+    "ember-addon",
+    "svelte"
   ],
   "repository": "",
   "license": "MIT",
@@ -36,8 +37,7 @@
     "ember-cli-htmlbars": "^6.0.1",
     "ember-cli-version-checker": "^5.1.2",
     "ember-element-helper": "^0.6.1",
-    "ember-render-helpers": "^0.2.0",
-    "svelte": "^3.48.0"
+    "ember-render-helpers": "^0.2.0"
   },
   "devDependencies": {
     "@ember/optional-features": "^2.0.0",
@@ -78,6 +78,7 @@
     "prettier": "^2.6.2",
     "qunit": "^2.19.1",
     "qunit-dom": "^2.0.0",
+    "svelte": "^3.48.0",
     "webpack": "^5.72.1"
   },
   "engines": {
@@ -87,6 +88,7 @@
     "edition": "octane"
   },
   "ember-addon": {
-    "configPath": "tests/dummy/config"
+    "configPath": "tests/dummy/config",
+    "defaultBlueprint": "ember-cli-svelte"
   }
 }

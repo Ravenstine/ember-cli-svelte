@@ -4,6 +4,10 @@ const { readFileSync, writeFileSync } = require('fs');
 const path = require('path');
 
 module.exports = {
+  name: 'ember-cli-svelte',
+  description: 'Installs ember-cli-svelte',
+  works: 'insideProject',
+
   normalizeEntityName() {},
 
   afterInstall({ project }) {
@@ -27,6 +31,10 @@ module.exports = {
     });
 
     writeFileSync(appFilePath, code, 'utf8');
+
+    if (!('svelte' in this.project.dependencies())) {
+      return this.addPackagesToProject([{ name: 'svelte', target: '^3.48.0' }]);
+    }
   },
 
   afterUninstall({ project }) {

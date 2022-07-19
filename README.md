@@ -5,6 +5,8 @@ Ember CLI Svelte
 
 This *experimental* add-on makes it possible to use [Svelte](https://svelte.dev) components within your Ember.js application.
 
+Before this makes it to v1.0.0, there's a high likelihood you will run into problems.  Please add a GitHub issue for any weirdness you run into.
+
 
 ## Compatibility
 
@@ -15,11 +17,18 @@ This *experimental* add-on makes it possible to use [Svelte](https://svelte.dev)
 There is no intention to support versions of Ember before v3.28.
 
 
+## Yeah but why?
+
+Ember.js is a nice framework and Svelte is a great component compiler that is very straight-forward to use and portable.  Oh, and I did it because I can.
+
+
 ## Installation
 
 ```
 ember install ember-cli-svelte
 ```
+
+The `svelte` package will be added as a separate dependency in your project's `package.json`.
 
 The default blueprint will automatically modify your `app.js` file to use the extended resolver from this add-on instead of the default one from `ember-resolver`.
 
@@ -36,8 +45,6 @@ import Resolver from 'ember-cli-svelte/resolver';
 ```
 
 The extended resolver is necessary to support the resolution of `.svelte` files.  In any case, you will need to use this resolver, so if you choose to use `npm install` instead of `ember install`, you must change this import by hand.
-
-If you uninstall this add-on using `ember uninstall ember-cli-svelte`, your code will be reverted back to using `ember-resolver`.
 
 
 ## Usage
@@ -117,6 +124,46 @@ Outputs:
 ```
 
 Block content can be dynamic and the Svelte component can even dynamically show/hide the slot.
+
+
+### Reactivity
+
+Keep in mind that Svelte's reactivity system is still separate from the Glimmer reactivity system and that certain things you can do in Glimmer won't work in Svelte.
+
+For instance, in Ember/Glimmer, a template will automatically react to properties of an object like `service:router` because its properties are `@tracked`.  Svelte has no awareness of `@tracked`, so it will not re-render in response to property value changes alone.
+
+There is a couple of primary ways to work around this.  The best one is to explicitly pass in reactive values as properties to a Svelte component.
+
+```hbs
+<MySvelteComponent @routeName={{this.routerService.currentRouteName}} />
+```
+
+This approach effectively allows Glimmer to directly inform Svelte components on value changes that it's aware of.  The reason it is ideal is because work only happens if something changes, making it the most efficient.
+
+It might not always be practical to explicitly pass in reactive values as properties.  A Svelte component may need to import and use something like a service on its own.  In that case, Ember provides observers that can allow us to respond to changes.
+
+```hbs
+<script>
+  import { onDestroy } from 'svelte';
+  import { addObserver, removeObserver } from '@ember/object/observers';
+  import { lookup } from 'ember-cli-svelte';
+
+  const [{ $$: self }] = arguments;
+  const routerService = lookup('service:router');
+
+  let routeName = routerService.currentRouteName;
+
+  addObserver(routerService, 'currentRouteName', self, () => {
+    routeName = routerService.currentRouteName;
+  }, true);
+
+  onDestroy(() => {
+    removeObserver(routerService, 'currentRouteName', self);
+  });
+</script>
+
+<p>{routeName}</p>
+```
 
 
 ### Lookups
@@ -203,6 +250,14 @@ You can also invoke Ember/Glimmer components from within a Svelte component.  Th
 ## Notes
 
 This add-on is not compatible with FastBoot.  It remains to be seen whether it will ever be fully compatible with FastBoot.  Typescript inside Svelte components also is not yet suppoorted.
+
+
+## Todo
+
+- Preprocess Svelte JS code using host app's Babel transforms
+- Support using Typescript
+- Investigate FastBoot support (or at least not breaking)
+- Embroider compatibility
 
 
 ## Contributing

@@ -12,10 +12,6 @@ module.exports = function (defaults) {
     behave. You most likely want to be modifying `./index.js` or app's build file
   */
 
-  // app.import('node_modules/svelte/index.js', {
-  //   using: [{ transformation: 'cjs', as: 'svelte' }],
-  // });
-
   const { maybeEmbroider } = require('@embroider/test-setup');
   return maybeEmbroider(app, {
     skipBabel: [
