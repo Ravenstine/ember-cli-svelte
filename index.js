@@ -8,7 +8,7 @@ const { default: template } = require('@babel/template');
 const t = require('@babel/types');
 const VersionChecker = require('ember-cli-version-checker');
 
-const MIN_EMBER_VERSION = '6.28.0';
+const MIN_EMBER_VERSION = '3.28.0';
 
 module.exports = {
   name: require('./package').name,
@@ -19,7 +19,7 @@ module.exports = {
 
     if (ember.lt(MIN_EMBER_VERSION)) {
       console.warn(
-        '\x1b[33m',
+        '\x1b[33m%s\x1b[0m',
         `\nember-cli-svelte requires a version of ember-source >= ${MIN_EMBER_VERSION}.  Your app is using ember-source ${ember.version} and is likely to encounter errors.  Please update to a more recent version of ember-source.\n`
       );
     }
@@ -33,6 +33,7 @@ module.exports = {
       ext: 'svelte',
       _addon: this,
       toTree(tree) {
+        console.log('did preoprocess!');
         return new SveltePlugin([tree], {});
       },
     });
